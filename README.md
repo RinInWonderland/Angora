@@ -12,7 +12,7 @@ Read instructions.md for more details.
 
 ## Build & Test
 
-### Makfile usage
+### Makefile usage
 
 ```sh
 make interp    # bin/angora-interp (default target)
