@@ -1,0 +1,228 @@
+// Random-value quicksort demo.
+//
+// Fills an array with N 64-bit UInt values from `rand`, sorts it in place with
+// an iterative (explicit range stack) Lomuto quicksort, then prints the sorted
+// array. All state lives in `.data` slots used as globals, so no recursion and
+// no deep stack juggling is needed. Output is nondeterministic because the input
+// values come from `rand`, but the printed array is always in ascending order.
+
+.data
+.uint g_arr 0
+.uint g_stk 0
+.uint g_lo 0
+.uint g_hi 0
+.uint g_i 0
+.uint g_j 0
+.uint g_piv 0
+.uint g_t0 0
+.end
+
+.func main
+  // ---- g_arr = [rand() x 16] ----
+  arrnew
+  st &g_arr
+  pushuimm 0
+  st &g_i
+build_loop:
+  ld &g_i
+  pushuimm 16
+  ult                        // i < 16
+  branch @build_body
+  pop
+  jmp @build_done
+build_body:
+  pop                        // drop the condition
+  ld &g_arr
+  rand
+  arrpush                    // arr
+  st &g_arr
+  ld &g_i
+  pushuimm 1
+  addu
+  st &g_i
+  jmp @build_loop
+build_done:
+
+  // ---- g_stk = [(0, 15)]; each range is pushed lo then hi ----
+  arrnew
+  st &g_stk
+  ld &g_stk
+  pushuimm 0
+  arrpush
+  st &g_stk
+  ld &g_stk
+  pushuimm 15
+  arrpush
+  st &g_stk
+
+  // ---- while range stack not empty ----
+sort_loop:
+  ld &g_stk
+  arrlen                     // arr len
+  swap
+  pop                        // len
+  eqz
+  branch @sort_done
+  pop
+  // hi = pop(); lo = pop()
+  ld &g_stk
+  arrpop
+  swap
+  pop
+  st &g_hi
+  ld &g_stk
+  arrpop
+  swap
+  pop
+  st &g_lo
+  // if lo >= hi -> next range
+  ld &g_lo
+  ld &g_hi
+  ge
+  branch @sort_continue
+  pop
+
+  // ---- partition(lo, hi) ----
+  // pivot = arr[hi]
+  ld &g_arr
+  ld &g_hi
+  arrget
+  swap
+  pop
+  st &g_piv
+  // i = lo; j = lo
+  ld &g_lo
+  st &g_i
+  ld &g_lo
+  st &g_j
+part_loop:
+  ld &g_j
+  ld &g_hi
+  ge                         // j >= hi
+  branch @part_done
+  pop
+  // if arr[j] < pivot
+  ld &g_arr
+  ld &g_j
+  arrget
+  swap
+  pop                        // arr[j]
+  ld &g_piv
+  ult                        // arr[j] < pivot
+  branch @do_swap
+  pop
+  jmp @no_swap
+do_swap:
+  pop
+  // t0 = arr[i]
+  ld &g_arr
+  ld &g_i
+  arrget
+  swap
+  pop
+  st &g_t0
+  // arr[i] = arr[j]
+  ld &g_arr
+  ld &g_i
+  ld &g_arr
+  ld &g_j
+  arrget
+  swap
+  pop
+  arrput
+  pop
+  pop
+  // arr[j] = t0
+  ld &g_arr
+  ld &g_j
+  ld &g_t0
+  arrput
+  pop
+  pop
+  // i++
+  ld &g_i
+  pushuimm 1
+  addu
+  st &g_i
+no_swap:
+  // j++
+  ld &g_j
+  pushuimm 1
+  addu
+  st &g_j
+  jmp @part_loop
+part_done:
+  pop                        // drop the condition
+  // swap arr[i], arr[hi]
+  ld &g_arr
+  ld &g_i
+  arrget
+  swap
+  pop
+  st &g_t0
+  ld &g_arr
+  ld &g_i
+  ld &g_arr
+  ld &g_hi
+  arrget
+  swap
+  pop
+  arrput
+  pop
+  pop
+  ld &g_arr
+  ld &g_hi
+  ld &g_t0
+  arrput
+  pop
+  pop
+
+  // ---- push sub-ranges: (lo, i-1) if lo < i, (i+1, hi) if i < hi ----
+  ld &g_lo
+  ld &g_i
+  ult                        // lo < i
+  branch @push_left
+  pop
+  jmp @check_right
+push_left:
+  pop
+  ld &g_stk
+  ld &g_lo
+  arrpush
+  st &g_stk
+  ld &g_stk
+  ld &g_i
+  pushuimm 1
+  subu                       // i-1
+  arrpush
+  st &g_stk
+check_right:
+  ld &g_i
+  ld &g_hi
+  ult                        // i < hi
+  branch @push_right
+  pop
+  jmp @sort_loop
+push_right:
+  pop
+  ld &g_stk
+  ld &g_i
+  pushuimm 1
+  addu                       // i+1
+  arrpush
+  st &g_stk
+  ld &g_stk
+  ld &g_hi
+  arrpush
+  st &g_stk
+  jmp @sort_loop
+
+sort_continue:
+  pop
+  jmp @sort_loop
+sort_done:
+  pop
+  ld &g_arr
+  print
+  exit
+.endfunc

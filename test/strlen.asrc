@@ -1,0 +1,41 @@
+// expect: 13
+// expect: 0
+// expect: 3
+
+// strlen instruction test.
+//
+// strlen replaces the string at stack top with its length as a UInt.
+//
+// Expected output:
+//   13
+//   0
+//   3
+
+.data
+.str hello "hello, world!"
+.str empty ""
+.str ab "ab"
+.end
+.func main
+  // 1. length of hello.
+  ld &hello
+  strlen
+  print
+  pop
+
+  // 2. an empty string has length 0.
+  ld &empty
+  strlen
+  print
+  pop
+
+  // 3. the result behaves as an integer: len("ab") + 1 = 3.
+  ld &ab
+  strlen
+  pushimm 1
+  add
+  print
+  pop
+
+  exit
+.endfunc

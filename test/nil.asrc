@@ -1,0 +1,109 @@
+// expect: nil
+// expect: nil
+// expect: 1
+// expect: 0
+// expect: 1
+// expect: 2
+// expect: 4
+// expect: nil
+// expect: [nil]
+// expect: nil
+
+// nil coverage.
+//
+// `pushnil` pushes nil; `isnil` tests by tag (UInt 1/0); `print`/`repr` show
+// "nil". nil is falsy for `branch` (and so is a numeric zero); everything else
+// is truthy. nil can live in the data section (.nil), in arrays, and as a
+// captured upvalue. It never participates in arithmetic.
+
+.data
+.nil g_slot
+.end
+
+.func main
+  // print / repr of nil
+  pushnil
+  print
+  pop
+  pushnil
+  repr
+  pop
+
+  // isnil on nil and on a number
+  pushnil
+  isnil
+  print
+  pop
+  pushimm 7
+  isnil
+  print
+  pop
+
+  // nil is falsy: the branch must not be taken
+  pushnil
+  branch @nil_taken
+  pop
+  pushimm 1
+  print
+  pop
+  jmp @nil_done
+nil_taken:
+  pop
+  pushimm 0
+  print
+  pop
+nil_done:
+
+  // numeric zero is falsy (unchanged rule)
+  pushimm 0
+  branch @zero_taken
+  pop
+  pushimm 2
+  print
+  pop
+  jmp @zero_done
+zero_taken:
+  pop
+  pushimm 0
+  print
+  pop
+zero_done:
+
+  // nonzero is truthy
+  pushimm 3
+  branch @truthy
+  pop
+  jmp @truthy_done
+truthy:
+  pushimm 4
+  print
+  pop
+truthy_done:
+
+  // nil loaded from the data section
+  ld &g_slot
+  print
+  pop
+
+  // nil stored in an array
+  arrnew
+  pushnil
+  arrpush
+  print
+  pop
+
+  // nil captured by a closure
+  pushnil
+  pushimm 1
+  closnew @capture
+  callc
+  print
+  pop
+
+  exit
+.endfunc
+
+.func capture
+  closget 0
+  ret 1
+.endfunc

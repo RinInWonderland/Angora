@@ -1,0 +1,94 @@
+// expect: 1
+// expect: 1
+// expect: 1
+// expect: 1
+// expect: 0
+// expect: 1
+// expect: 1
+// expect: 0
+// expect: 1
+// expect: 1
+// expect: 0
+
+// Comparison instructions test.
+//
+// Operands: compare stack[top-1] (X) against stack[top] (Y);
+// each instruction pushes 1 if X <op> Y holds, else 0.
+//   signed   : lt le gt ge
+//   unsigned : ult ule ugt uge
+// Use `pushimm` for signed operands and `pushuimm` for unsigned ones.
+//
+// Expected output (one value per line):
+//   signed:      1 1 1 1 0
+//   unsigned:    1 1 0 1
+//   disagree:    1 0   (same bits, signed vs unsigned differ)
+
+// ---- signed comparisons ----
+// -3 <  5      -> 1
+pushimm -3
+pushimm 5
+lt
+print
+
+// -3 <= 5      -> 1
+pushimm -3
+pushimm 5
+le
+print
+
+// 10 >  -3     -> 1
+pushimm 10
+pushimm -3
+gt
+print
+
+// 10 >= -3     -> 1
+pushimm 10
+pushimm -3
+ge
+print
+
+// 0 <  0       -> 0
+pushimm 0
+pushimm 0
+lt
+print
+
+// ---- unsigned comparisons ----
+// 2 <  3       -> 1
+pushuimm 2
+pushuimm 3
+ult
+print
+
+// 3 <= 3       -> 1
+pushuimm 3
+pushuimm 3
+ule
+print
+
+// 0 >  5       -> 0
+pushuimm 0
+pushuimm 5
+ugt
+print
+
+// 5 >= 5       -> 1
+pushuimm 5
+pushuimm 5
+uge
+print
+
+// ---- signed vs unsigned disagree on the same bit pattern ----
+// bits 0xFFFFFFFFFFFFFFFF = -1 (signed) = 18446744073709551615 (unsigned).
+//   X < 1  as SIGNED   (-1 < 1)                -> 1
+//   X < 1  as UNSIGNED (18446744073709551615 < 1) -> 0
+pushimm -1
+pushimm 1
+lt
+print
+
+pushuimm 18446744073709551615
+pushuimm 1
+ult
+print

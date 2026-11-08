@@ -1,0 +1,44 @@
+// expect: 2
+// expect: 5001
+
+// GC churn test.
+//
+// `gcstat` pushes two UInt on top: the total number of GC objects bump-allocated
+// so far, then the number reachable at the most recent sweep. The loop mints a
+// fresh string via `strcpy`, drops it so the next sweep reclaims it, and reads
+// the counters at the end.
+//
+// Expected after 5000 iterations:
+//   first printed number (live)  << second printed number (alloc)
+// i.e. many objects were allocated but only a tiny, bounded root set (the
+// `.data` string and at most the one transient copy on the stack) stays live —
+// proving the sweep reclaims unreachable strings and the free-list reuses slots.
+
+.data
+.str word "churn"
+.end
+.func main
+  pushuimm 0                 // c = 0
+loop:
+  dup                        // [c, c]
+  pushuimm 5000
+  ult                        // [c, c<5000]
+  branch @loopbody           // taken while c<5000; branch leaves its condition
+  pop                        // fall-through (c>=5000): drop the false condition
+  jmp @done
+loopbody:
+  pop                        // drop the true condition -> [c]
+  ld &word                    // [c, word]
+  strcpy                     // [c, word, fresh]  (one new GC object per iter)
+  pop                        // [c, word]
+  pop                        // [c]   fresh now unreachable
+  pushuimm 1
+  addu                       // [c+1]
+  jmp @loop
+done:
+  gcstat                     // [alloc] then [live] on top
+  print                     // live count
+  pop
+  print                      // alloc count
+  exit
+.endfunc

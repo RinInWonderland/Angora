@@ -1,0 +1,117 @@
+// expect: 15
+// expect: 27
+// expect: 1
+// expect: 2
+
+// Closure support demo: first-class function values with captured
+// environments (capture by value).
+//
+// `closnew @f` pops a capture count N, then N values (the first pushed
+// becomes upvals[0]) and pushes a closure. `callc` pops a closure and
+// enters it with the usual convention: explicit arguments stay on the
+// value stack below the closure, the callee still does `claim argc`, and
+// `closget i` reads captured value i of the running closure.
+//
+// Captured values are shallow aliases, so a captured array handle is
+// shared mutable state: make_counter's closure and the caller observe the
+// same 1-element cell.
+//
+// Expected output:
+//   15   (make_adder(5) applied to 10)
+//   27   (make_adder(7) applied to 20)
+//   1    (counter bumped once)
+//   2    (same cell bumped again)
+
+.data
+.uint g_add5 0
+.uint g_counter 0
+.end
+
+.func main
+  // add5 = make_adder(5)
+  pushimm 5
+  call @make_adder
+  st &g_add5
+
+  // add5(10) -> 15
+  pushimm 10
+  ld &g_add5
+  callc
+  print
+  pop
+
+  // make_adder(7)(20) -> 27
+  pushimm 7
+  call @make_adder
+  pushimm 20
+  swap
+  callc
+  print
+  pop
+
+  // counter = make_counter([0])
+  arrnew
+  pushuimm 0
+  arrpush
+  call @make_counter
+  st &g_counter
+
+  // counter() -> 1, counter() -> 2
+  ld &g_counter
+  callc
+  print
+  pop
+  ld &g_counter
+  callc
+  print
+  pop
+
+  exit
+.endfunc
+
+// make_adder: capture n, return a closure that adds n to its argument.
+.func make_adder
+  claim 1                 // n
+  dup                     // n n
+  pushimm 1               // n n 1   (capture count)
+  closnew @addN           // n clos  (upvals[0] = n)
+  swap                    // clos n
+  pop                     // clos
+  ret 1
+.endfunc
+
+// addN: closure body, stack  x -> x + upval(0).
+.func addN
+  claim 1                 // x
+  closget 0               // x n
+  add                     // x+n
+  ret 1
+.endfunc
+
+// make_counter: takes a 1-element cell, returns a closure that bumps it.
+.func make_counter
+  claim 1                 // cell
+  dup                     // cell cell
+  pushimm 1               // cell cell 1
+  closnew @bump           // cell clos
+  swap                    // clos cell
+  pop                     // clos
+  ret 1
+.endfunc
+
+// bump: closure body, stack  -> cell[0] + 1 (and stores it back).
+.func bump
+  claim 0
+  closget 0               // cell
+  pushuimm 0              // cell 0
+  arrget                  // cell old
+  pushuimm 1              // cell old 1
+  addu                    // cell new
+  pushuimm 0              // cell new 0
+  swap                    // cell 0 new
+  arrput                  // cell 0
+  arrget                  // cell new
+  swap                    // new cell
+  pop                     // new
+  ret 1
+.endfunc

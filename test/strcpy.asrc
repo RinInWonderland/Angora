@@ -1,0 +1,38 @@
+// expect: hello, world!
+// expect: Lutable target
+
+// strcpy instruction test.
+//
+// strcpy copies the string at stack top into a freshly allocated buffer,
+// wraps it in a new Unit, and pushes it. The original string stays below.
+//
+// Expected output:
+//   hello, world!
+//   hello, world!
+//   mutable target
+//   Lutable target
+
+.data
+.str hello "hello, world!"
+.str mut "mutable target"
+.end
+.func main
+  // copy hello, both owners on stack: [hello, hello_copy]
+  ld &hello
+  strcpy
+  pop                    // drop original; [hello_copy]
+  print                  // expect hello, world!
+  pop
+
+  // verify copy is independent: mutate the copy, original unchanged
+  ld &mut
+  strcpy                 // [mut, mut_copy]
+  pop                    // [mut_copy]
+  pushimm 0
+  pushimm 76            // 'L'
+  strsetchar             // mutate the copy: index 0 -> 'L'
+  print                  // expect Lutable target
+  pop
+
+  exit
+.endfunc

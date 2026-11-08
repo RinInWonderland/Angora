@@ -1,0 +1,68 @@
+// expect: 42
+
+// Closure GC stress test.
+//
+// `callc` pops the closure off the value stack, so while its body runs the
+// closure is referenced only by the call frame. This body allocates far more
+// garbage than the collector's threshold, forcing several full collections,
+// and then reads its captured value. If the in-flight closure were not a GC
+// root, it would be swept and this would read freed memory (crash or a wrong
+// result).
+//
+// Expected output:
+//   42
+
+.data
+.uint g_val 0
+.uint g_i 0
+.uint g_n 0
+.end
+
+.func main
+  pushimm 42
+  call @make_holder
+  callc
+  print
+  pop
+  exit
+.endfunc
+
+// make_holder: capture v, return a closure over it.
+.func make_holder
+  claim 1
+  dup
+  pushimm 1
+  closnew @holder_body
+  swap
+  pop
+  ret 1
+.endfunc
+
+// holder_body: churn the heap, then return the captured value.
+.func holder_body
+  claim 0
+  pushuimm 40000
+  st &g_n
+  pushuimm 0
+  st &g_i
+loop:
+  ld &g_i
+  ld &g_n
+  ult
+  branch @body
+  pop
+  jmp @done
+body:
+  pop
+  arrnew
+  pop
+  ld &g_i
+  pushuimm 1
+  addu
+  st &g_i
+  jmp @loop
+done:
+  pop
+  closget 0
+  ret 1
+.endfunc

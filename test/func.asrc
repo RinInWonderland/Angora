@@ -1,0 +1,97 @@
+// expect: 120
+// expect: 6
+// expect: 7
+// expect: 2
+// expect: 2
+
+// Function support demo: call/ret on a dedicated call stack,
+// .func/.endfunc blocks, and value-stack argument passing.
+//
+// PC 0 is the entry, so `main` is defined first. Jumps to a label that
+// is defined later (a forward reference, as in any recursive function)
+// are resolved after the whole program is read.
+//
+// Arguments are pushed by the caller onto the value stack. `call` records
+// the value-stack and data-segment watermarks in a call frame; `claim <argc>`
+// lowers the frame base below the arguments, and `ret <n>` leaves the top n
+// results there while rolling stack_ and mem_ back to their pre-call state.
+// So each function unwinds cleanly and recursion works naturally.
+//
+// Expected output:
+//   120   (factorial(5))
+//    6    (factorial(3))
+//    7    (add(3, 4))
+//    2    (arena index handed out by the first grab call)
+//    2    (same index after the second call: mem_ rolled back on ret)
+
+.data
+.uint seen0 0
+.uint seen1 0
+.end
+
+.func main
+  // factorial(5) -> 120
+  pushimm 5
+  call @factorial
+  print
+  pop
+
+  // factorial(3) -> 6
+  pushimm 3
+  call @factorial
+  print
+  pop
+
+  // add(3, 4) -> 7, via value-stack argument passing
+  pushimm 3
+  pushimm 4
+  call @add
+  print
+  pop
+
+  // Frame rollback: grab() bump-allocates one arena word and returns its
+  // index. Calling it twice must return the SAME index, because each `ret`
+  // rolls mem_ back to the frame's pre-call watermark.
+  call @grab
+  st &seen0
+  call @grab
+  st &seen1
+  ld &seen0
+  print
+  ld &seen1
+  print
+
+  exit
+.endfunc
+
+// grab: allocate one arena word, return its start index.
+.func grab
+  alloci 1
+  ret 1
+.endfunc
+
+// factorial: stack  n -> n!    (recursive)
+.func factorial
+  claim 1                 // frame base sits below n
+  dup                     // n, n
+  branch @facnz            // n != 0 -> recursive case
+  // base case: n == 0
+  pop                     // drop one copy
+  pop                     // drop the other copy
+  pushimm 1               // 1
+  ret 1                   // return the single top value
+facnz:
+  // recursive case: stack n, n
+  pushimm 1              // n, n, 1
+  sub                    // n, n-1
+  call @factorial         // recurse on (n-1); n stays below
+  mul                    // n * (n-1)! = n!
+  ret 1                   // return n!
+.endfunc
+
+// add: stack  a b -> a+b
+.func add
+  claim 2                 // frame base sits below a b
+  add
+  ret 1                   // return a+b
+.endfunc

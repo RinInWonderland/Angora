@@ -1,0 +1,137 @@
+// expect: 3
+// expect: [10, 20, 30]
+// expect: 20
+// expect: 30
+// expect: [99, 20, 7]
+// expect: [99, 20]
+// expect: 7
+// expect: [[5, 6, 7]]
+// expect: 6
+// expect: 6012
+
+// Array instruction test.
+//
+// Arrays are GC-managed, growable, reference-typed sequences with 0-based
+// indices. Aliases share one array; `arrcpy` makes a shallow copy; `arrput`
+// is a bounded write while `arrpush` grows.
+//
+// Expected output:
+//   3                 arrlen: length of [10, 20, 30]
+//   [10, 20, 30]      print of the array
+//   20                arrget index 1
+//   30                arrpop returns the removed last element
+//   [99, 20, 7]       arrcpy copy after arrpush 7
+//   [99, 20]          the original is unaffected by the copy
+//   7                 nested: outer[0][2]
+//   [[5, 6, 7]]       print of the nested array
+//   6                 gcstat live: reachable objects at the last sweep
+//   6012              gcstat alloc: total GC objects allocated
+//                     (alloc climbs while live stays small and bounded)
+
+.func main
+      // --- arrnew / arrpush / arrlen ---
+   arrnew                     // [a]
+   dup
+   pushuimm 10
+   arrpush                    // a = [10]
+   pushuimm 20
+   arrpush
+   pushuimm 30
+   arrpush                    // a = [10, 20, 30]
+   arrlen                     // [a, 3]
+   print                      // 3
+   pop
+   dup
+   print                      // [10, 20, 30]
+   pop
+
+      // --- arrget ---
+   dup
+   pushuimm 1
+   arrget                     // [a, a, 20]
+   print                      // 20
+   pop
+   pop
+
+      // --- arrput (bounded write) ---
+   dup
+   pushuimm 0
+   pushuimm 99
+   arrput                     // [a, a, 0]
+   pop
+   pop
+
+      // --- arrpop ---
+   dup
+   arrpop                     // [a, a, 30]
+   print                      // 30
+   pop
+   pop                        // a = [99, 20]
+
+      // --- arrcpy: shallow copy is independent in length ---
+   dup
+   arrcpy                     // [a, a, copy]
+   pushuimm 7
+   arrpush                    // [a, a, copy=[99, 20, 7]]
+   print                      // [99, 20, 7]
+   pop
+   print                      // [99, 20]
+   pop
+   pop
+
+      // --- nesting: outer = [inner], inner = [5, 6, 7] ---
+   arrnew                     // [inner]
+   dup
+   pushuimm 5
+   arrpush
+   pushuimm 6
+   arrpush
+   pushuimm 7
+   arrpush                    // [inner] = [5, 6, 7]
+   arrnew                     // [inner, outer]
+   swap                       // [outer, inner]
+   arrpush                    // [outer] = [inner]
+   dup
+   pushuimm 0
+   arrget                     // [outer, outer, inner]
+   pushuimm 2
+   arrget                     // [outer, outer, inner, 7]
+   print                      // 7
+   pop
+   pop
+   print                      // [[5, 6, 7]]
+   pop
+   pop
+
+      // --- self-reference (cycle) then drop: mark must terminate ---
+   arrnew
+   dup
+   arrpush                    // a[0] = a
+   pop
+
+      // --- churn: allocate and drop many arrays, then inspect the collector ---
+   pushuimm 0                 // i = 0
+churn:
+   dup
+   pushuimm 3000
+   ult
+   branch @churnbody
+   pop
+   jmp @done
+churnbody:
+   pop
+   arrnew
+   pushuimm 1
+   arrpush
+   pop                        // drop the array -> unreachable next sweep
+   pushuimm 1
+   addu
+   jmp @churn
+done:
+   arrnew                     // leave one array rooted so live stays non-zero
+   gcstat                     // [arr, alloc, live]
+   print                      // live
+   pop
+   print                      // alloc
+   exit
+.endfunc

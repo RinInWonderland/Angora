@@ -1,0 +1,24 @@
+// expect: 65542
+// expect: 65542
+
+// Demonstrates .data / .end section + stack arithmetic, wrapped in a main function.
+// Entry point is the label "main".
+.data
+.int foo 65540
+.int bar 2
+.end
+.func main
+  // Load from data section and print: 65540 + 2 = 65542
+  ld &foo
+  ld &bar
+  add
+  print
+
+  // Same using immediate values only:
+  pushimm 65540
+  pushimm 2
+  add
+  print
+
+  exit
+.endfunc

@@ -1,0 +1,73 @@
+// expect: 0
+// expect: 3
+// expect: 777
+// expect: 888
+// expect: 5
+// expect: 7
+// expect: 9
+// expect: 14
+
+// Scheme B dynamic memory allocation test: monotonic bump arena.
+//
+// Two alloc variants share the same bump behaviour, differing only in where
+// the word count N comes from:
+//   `alloci N`  : N is the instruction's immediate argument.
+//   `alloc`     : N is popped from the value stack top (TOP()).
+//
+// Both push the resulting start index onto the value stack and only ever bump
+// forward. There is no `free` instruction: reclamation of unreachable objects
+// is the tracing collector's job, not the arena's.
+//
+// The arena starts empty here, so the first allocation begins at index 0.
+//
+// Expected output:
+//     0     alloci 3: fresh bump starts at index 0
+//     3     alloc (N from stack) bumps forward to index 3
+//   777     round-tripped through str/ldr at [3+0]
+//   888     round-tripped through str/ldr at [3+1]
+//     5     alloci 2: bump continues forward (no LIFO reuse), start = 5
+//     7     the next alloci 2 bumps to index 7
+//     9     alloc (N from stack, 5 words) bumps forward to index 9
+//    14     alloc 0 returns the current bump (14) without growing
+
+.func main
+  // --- `alloci`: fresh immediate bump at index 0 ---
+  alloci 3                   // start = 0, arena grows to 3 words; stack [0]
+  print                      // expect 0
+  pop
+
+  // --- `alloc`: N popped from the stack, bumping forward ---
+  pushuimm 2                 // word count on the stack
+  alloc                      // pop N=2, bump 3->5; stack [3]
+  print                      // expect 3
+
+  // --- store/load round-trip into the [3,5) region ---
+  pushuimm 3                 // base index on NEX for str / on TOP for ldr
+  pushuimm 777; str 0        // mem[3] = 777   (base = NEX = 3, offset 0)
+  pushuimm 888; str 1        // mem[4] = 888
+  ldr 0; print; pop          // 777
+  ldr 1; print; pop          // 888
+
+  // --- indices are plain values: dropping them (`pop`) frees nothing ---
+  pop                        // drop the base copy; stack []
+  pushuimm 3; pop            // discard an old index; the arena never shrinks
+  pushuimm 4; pop            // discard another; bump is unaffected
+  alloci 2                   // bump forward -> index 5; stack [5]
+  print                      // expect 5
+  pop
+  alloci 2                   // bump forward -> index 7; stack [7]
+  print                      // expect 7
+  pop
+
+  // --- `alloc` with N from the stack, then an `alloc 0` edge case ---
+  pushuimm 5                 // word count on the stack
+  alloc                      // pop N=5, bump forward to index 9; stack [9]
+  print                      // expect 9
+  pop
+  pushuimm 0                  // word count on the stack
+  alloc                       // pop N=0, current bump = 14, no growth; stack [14]
+  print                       // expect 14
+  pop
+
+  exit
+.endfunc

@@ -1,0 +1,143 @@
+// expect: 3.75
+// expect: -1
+// expect: 6
+// expect: 3
+// expect: 1.5
+// expect: 8
+// expect: 1
+// expect: 1
+// expect: 0
+// expect: 1
+// expect: 0
+// expect: 1
+// expect: 0
+// expect: 1
+// expect: 0
+
+// Floating-point operation coverage.
+//
+// Exercises every floating-point instruction: the `pushfp` literal macro,
+// `spawnfp` (retype a raw IEEE-754 pattern), the folded arithmetic variants
+// (addf / subf / mulf / divf / modf), the folded comparison variants
+// (ltf / lef / gtf / gef), and `print` of an FP value (printed in the
+// shortest decimal form that reads back to the same double).
+// Comparisons yield a UInt 1/0.
+//
+// Expected output:
+//   3.75        (1.5 + 2.25)
+//   -1          (1.5 - 2.5)
+//   6           (1.5 * 4.0)
+//   3           (7.5 / 2.5)
+//   1.5         (7.5 mod 2.0)
+//   8           ((1.5 + 2.5) * 2.0)
+//   1           (spawnfp on 0x3FF0000000000000)
+//   1           (1.5 < 2.5)
+//   0           (2.5 < 1.5)
+//   1           (2.5 <= 2.5)
+//   0           (2.5 <= 1.5)
+//   1           (2.5 > 1.5)
+//   0           (1.5 > 2.5)
+//   1           (2.5 >= 2.5)
+//   0           (1.5 >= 2.5)
+
+.func main
+  // addf
+  pushfp 1.5
+  pushfp 2.25
+  addf
+  print
+  pop
+
+  // subf, giving a negative result
+  pushfp 1.5
+  pushfp 2.5
+  subf
+  print
+  pop
+
+  // mulf
+  pushfp 1.5
+  pushfp 4.0
+  mulf
+  print
+  pop
+
+  // divf
+  pushfp 7.5
+  pushfp 2.5
+  divf
+  print
+  pop
+
+  // modf
+  pushfp 7.5
+  pushfp 2.0
+  modf
+  print
+  pop
+
+  // chained: (1.5 + 2.5) * 2.0
+  pushfp 1.5
+  pushfp 2.5
+  addf
+  pushfp 2.0
+  mulf
+  print
+  pop
+
+  // spawnfp: retype a raw IEEE-754 double (1.0 == 0x3FF0000000000000)
+  pushuimm 0x3FF0000000000000
+  spawnfp
+  print
+  pop
+
+  // ltf
+  pushfp 1.5
+  pushfp 2.5
+  ltf
+  print
+  pop
+  pushfp 2.5
+  pushfp 1.5
+  ltf
+  print
+  pop
+
+  // lef
+  pushfp 2.5
+  pushfp 2.5
+  lef
+  print
+  pop
+  pushfp 2.5
+  pushfp 1.5
+  lef
+  print
+  pop
+
+  // gtf
+  pushfp 2.5
+  pushfp 1.5
+  gtf
+  print
+  pop
+  pushfp 1.5
+  pushfp 2.5
+  gtf
+  print
+  pop
+
+  // gef
+  pushfp 2.5
+  pushfp 2.5
+  gef
+  print
+  pop
+  pushfp 1.5
+  pushfp 2.5
+  gef
+  print
+  pop
+
+  exit
+.endfunc

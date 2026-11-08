@@ -1,0 +1,35 @@
+// expect: 42
+// expect: 88
+// expect: 42
+
+// Test relative load (ldr) and store (str) instructions.
+//
+// ldr base offset : TOP() is base index, reads mem_[base+offset] onto stack.
+//                   Stack: [..., base] -> [..., base, loaded_value]
+// str base offset : NEX() is base index, writes TOP() to mem_[base+offset].
+//                   Stack: [..., base, value] -> [..., base]
+
+.data
+.int val1 42
+.int val2 0
+.end
+.func main
+  // ldr test: read from mem[top_of_stack + imm], top preserved
+  pushuimm 0                 // base index = 0 (for data section)
+  ldr 0                      // mem_[0+0] = mem[0] = 42 -> stack [0, 42]
+  print                      // expect: 42
+  pop                        // clear for next test
+
+  // str test: store at index 1 via base+offset, verify round-trip
+  pushuimm 88                // NEX=0, TOP=88
+  str 1                      // mem_[0+1] = mem[1] = 88, POP 88 -> [0]
+  ldr 1                      // mem_[0+1] = mem[1] = 88 -> stack [0, 88]
+  print                      // expect: 88
+
+  // Verify str at index 1 did not clobber index 0
+  pop                          // [0, 88] -> [0]
+  ldr 0                      // mem_[0+0] = mem[0] = 42 -> stack [0, 42]
+  print                      // expect: 42
+
+  exit
+.endfunc

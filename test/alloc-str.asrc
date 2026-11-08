@@ -1,0 +1,53 @@
+// expect: heap region
+// expect: 1
+// expect: 2
+
+// Scheme B dynamic allocation test: storing a string into an allocated slot.
+//
+// This exercises the GC-owned-string path of the allocator: mem_ slots hold
+// shallow references (Units of type Str) into the GC heap. Nothing needs to be
+// freed by hand — when the last reference is overwritten or popped, the object
+// simply becomes unreachable and the next sweep reclaims it.
+//
+// The .data string lives at index 0, so the first allocation starts at index 1
+// (the arena begins right after the data segment).
+//
+// This test also shows the two alloc variants:
+//   `alloc`   pops the word count from the stack top,
+//   `alloci`  takes the word count from its immediate argument.
+//
+// Expected output:
+//   heap region      the string read back from the allocated slot
+//   1                the allocated index
+//   2                the next index; the bump never recycles slots (no `free`),
+//                    bump just moves forward and the stale string is left for
+//                    the collector
+
+.data
+.str s "heap region"
+.end
+.func main
+  // `alloc`: the word count is popped from the stack top.
+  pushuimm 1                  // word count on the stack
+  alloc                       // pop 1, start = 1 (after the data segment); stack [1]
+  dup                         // keep the base index for str/ldr; [1, 1]
+  ld &s                       // push a copy of the string; [1, 1, <str>]
+  str 0                       // store the string at mem[1]; [1, 1]
+  pop                         // drop the base copy; [1]
+  ldr 0                       // load the stored string back; [1, <str>]
+  print                       // expect "heap region"
+  pop                         // [1]
+  print                       // expect 1 (the allocated index)
+
+  // Drop the index with a plain `pop` — there is no `free`. The bump
+  // never reuses slots, so the next alloc lands at index 2. The string
+  // once held at mem[1] is still a root (mem_ is traced), so it stays
+  // live until the slot is overwritten; a dropped stack alias alone
+  // never reclaims anything.
+  pop                         // stack []
+  alloci 1                    // bump forward -> index 2; stack [2]
+  print                       // expect 2
+  pop
+
+  exit
+.endfunc

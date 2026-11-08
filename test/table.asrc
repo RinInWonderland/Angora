@@ -1,0 +1,86 @@
+// expect: 3
+// expect: 10
+// expect: 1
+// expect: 2
+// expect: {0 = 100, "a" = 10}
+// expect: 100
+// expect: 10
+
+// Table coverage: pure key/value map with an array part and a hash part.
+//
+// `tbllen` is the entry count (no border/# semantics). Integer keys append into
+// the dense array part; other keys go to the hash part. `tblnext` walks the
+// array part in index order first, then the hash nodes. Assigning nil (or
+// tblerase) removes a key; the table never stores nil.
+
+.data
+.str ka "a"
+.str kb "b"
+.end
+
+.func main
+  tblnew                 // []
+
+  // t["a"] = 10, t["b"] = 20 (hash part)
+  ld &ka
+  pushimm 10
+  tblput
+  pop
+  ld &kb
+  pushimm 20
+  tblput
+  pop
+
+  // t[0] = 100 (array part, via the integer fast path)
+  pushuimm 0
+  pushimm 100
+  tblputi
+  pop
+
+  // entry count
+  tbllen
+  print
+  pop
+
+  // read "a"
+  ld &ka
+  tblget
+  print
+  pop
+
+  // has "a", has "missing"
+  ld &ka
+  tblhas
+  print
+  pop
+  ld &kb
+  tblerase               // remove "b"
+
+  // after deletion: size == 2
+  tbllen
+  print
+  pop
+
+  // shallow copy and print it
+  tblcpy
+  print
+  pop
+
+  // iterate all pairs; table::Next yields array keys first, then hash nodes
+  pushnil
+next_loop:
+  tblnext                // [t key value]
+  dup
+  isnil                  // end when the value is nil (nil is never stored)
+  branch @next_done
+  pop
+  print
+  pop                    // drop the value, keep [t key] for the next call
+  jmp @next_loop
+next_done:
+  pop                    // drop the isnil flag
+  pop                    // drop value (nil)
+  pop                    // drop key (nil)
+  pop                    // drop the table
+  exit
+.endfunc

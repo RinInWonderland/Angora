@@ -1,0 +1,80 @@
+// expect: 10
+// expect: 11
+// expect: 12
+// expect: 13
+// expect: 2
+// expect: 3
+// expect: 4
+
+// memcpy instruction test.
+//
+// memcpy copies `len` words from mem_[src..src+len) to mem_[dst..dst+len).
+// Operands are pushed in the order dst, src, len (len on stack top), matching
+// C's memcpy(dst, src, len). Both regions must be pre-allocated via alloc/alloci.
+// Overlapping ranges behave like memmove (a temporary holds the source slice).
+//
+// Expected output:
+//   10     non-overlapping copy: dst[0] = src[0]
+//   11     non-overlapping copy: dst[1] = src[1]
+//   12     non-overlapping copy: dst[2] = src[2]
+//   13     non-overlapping copy: dst[3] = src[3]
+//   2      overlapping copy (memmove): dst[0] preserved src[0]
+//   3      overlapping copy (memmove): dst[1] preserved src[1]
+//   4      overlapping copy (memmove): dst[2] preserved src[2]
+
+.func main
+  // --- non-overlapping copy ---
+  alloci 4                   // source region: start = 0, arena grows to 4; stack [0]
+  pushuimm 10; str 0         // mem[0] = 10  (base = NEX = 0, offset 0)
+  pushuimm 11; str 1         // mem[1] = 11
+  pushuimm 12; str 2         // mem[2] = 12
+  pushuimm 13; str 3         // mem[3] = 13
+  pop                        // drop the base copy; stack []
+
+  alloci 4                   // destination region: start = 4; stack [4]
+  pushuimm 0                 // src index on NEX
+  pushuimm 4                 // len on TOP  -> stack [4(dst), 0(src), 4(len)]
+  memcpy                     // mem[4..8) = mem[0..4); consumes all 3 operands; stack []
+
+  // read and print the destination region
+  pushuimm 4                 // base index for ldr
+  ldr 0; print; pop          // expect 10
+  ldr 1; print; pop          // expect 11
+  ldr 2; print; pop          // expect 12
+  ldr 3; print; pop          // expect 13
+  pop                        // drop the base copy; stack []
+
+  // --- length 0: no-op, must not crash ---
+  alloci 2                   // region: start = 8; stack [8]
+  pushuimm 0                 // src
+  pushuimm 0                 // len = 0 -> stack [8(dst), 0(src), 0(len)]
+  memcpy                     // copies nothing; stack []
+  pop
+
+  // --- overlapping copy (memmove semantics) ---
+  // fill mem[0..8) with 0..7, then copy mem[2..5) to mem[4..7).
+  alloci 8                   // start = 10; stack [10]
+  pushuimm 0; str 0          // mem[10] = 0
+  pushuimm 1; str 1          // mem[11] = 1
+  pushuimm 2; str 2          // mem[12] = 2
+  pushuimm 3; str 3          // mem[13] = 3
+  pushuimm 4; str 4          // mem[14] = 4
+  pushuimm 5; str 5          // mem[15] = 5
+  pushuimm 6; str 6          // mem[16] = 6
+  pushuimm 7; str 7          // mem[17] = 7
+  pop                        // drop the base copy; stack []
+
+  pushuimm 10                 // dst = 10
+  pushuimm 12                 // src = 12
+  pushuimm 3                  // len = 3 -> stack [10(dst), 12(src), 3(len)]
+  memcpy                      // mem[10..13) = mem[12..15); forward overlap is safe
+
+  // read mem[10], mem[11], mem[12]: expect 2, 3, 4
+  pushuimm 10
+  ldr 0; print; pop           // expect 2
+  ldr 1; print; pop           // expect 3
+  ldr 2; print; pop           // expect 4
+  pop
+
+  exit
+.endfunc

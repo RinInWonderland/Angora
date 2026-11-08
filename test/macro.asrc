@@ -1,0 +1,45 @@
+// expect: -1
+// expect: 70000
+// expect: 123456789012345
+// expect: 1
+// expect: 70000
+// expect: 123456789012345
+// expect: 3.14
+// expect: 30
+
+// Macro expansions + type printing demo, wrapped in a main function.
+// Entry point is the label "main".
+
+.func main
+  // Signed integer prints:
+  pushimm -1
+  print
+
+  pushimm 70000
+  print
+
+  pushimm 123456789012345
+  print
+
+  // Unsigned integer prints:
+  pushuimm 1
+  print
+
+  pushuimm 70000
+  print
+
+  pushuimm 123456789012345
+  print
+
+  // Floating-point prints:
+  pushfp 3.14
+  print
+
+  // Arithmetic + print:
+  pushimm 10
+  pushimm 20
+  add
+  print
+
+  exit
+.endfunc

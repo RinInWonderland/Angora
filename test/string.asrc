@@ -1,0 +1,73 @@
+// expect: hello, world!
+// expect: 101
+// expect: hello, world!bytecode virtual machine
+// expect: hello, world!
+// expect: hello, world!
+// expect: hello, world!hello, world!
+// expect: Lutable target
+
+// String operations + GC aliasing coverage.
+//
+// Every `ld`/`dup` produces a shallow alias of the same GC-owned buffer; a
+// `pop` just drops the reference. This test stresses those paths so a broken
+// collector would sweep a still-reachable string (use-after-free) here.
+//
+// Expected output:
+//   hello, world!
+//    101
+//   hello, world!bytecode virtual machine
+//   hello, world!
+//   hello, world!
+//   hello, world!hello, world!
+//   Lutable target
+
+.data
+.str hello "hello, world!"
+.str code "bytecode virtual machine"
+.str mut "mutable target"
+.end
+.func main
+  // 1. basic load + print.
+  ld &hello
+  print
+  pop
+
+  // 2. strchar at index 1 of hello -> 'e' (101).
+  ld &hello
+  pushimm 1
+  strchar
+  print
+  pop
+
+  // 3. concat hello + code.
+  ld &hello
+  ld &code
+  strconcat
+  print
+  pop
+
+  // 4. dup: two aliases share one buffer; both roots keep it live.
+  ld &hello
+  dup
+  print
+  print
+  pop
+  pop
+
+  // 5. self-concat via dup: hello + hello.
+  ld &hello
+  dup
+  strconcat
+  print
+  pop
+
+  // 6. strsetchar on a loaded copy: set index 0 of mut to 'L' (76).
+  ld &mut
+  pushimm 0
+  pushimm 76
+  strsetchar
+  print
+  pop
+
+  exit
+.endfunc

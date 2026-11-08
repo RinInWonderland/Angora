@@ -1,0 +1,62 @@
+// expect: 42
+// expect: 70000
+// expect: 123456789012345
+// expect: -1
+// expect: -9223372036854775808
+// expect: 18446744073709551615
+// expect: 3.14
+// expect: 42
+
+// ldc (constant-pool wide load) test.
+//
+// Every pushimm/pushuimm/pushfp literal now compiles to a single `ldc` into the
+// read-only constant pool, deduplicated by (type, value). Wide and negative
+// literals that used to expand into several pushhwi/add/sli words are now one
+// instruction. This exercises small, wide, negative and floating-point values,
+// plus a duplicate literal that must share a pool entry.
+//
+// Expected output:
+//   42
+//   70000
+//   123456789012345
+//   -1
+//   -9223372036854775808
+//   18446744073709551615
+//   3.140000
+//   42
+
+.func main
+  // Small signed literal.
+  pushimm 42
+  print
+
+  // Just over 16 bits: used to be a pushhwi pair + add.
+  pushimm 70000
+  print
+
+  // Wide signed literal.
+  pushimm 123456789012345
+  print
+
+  // Negative signed literal.
+  pushimm -1
+  print
+
+  // int64 minimum.
+  pushimm -9223372036854775808
+  print
+
+  // uint64 maximum (unsigned pool entry, distinct type from pushimm).
+  pushuimm 18446744073709551615
+  print
+
+  // Floating-point pool entry.
+  pushfp 3.14
+  print
+
+  // Duplicate of the first literal: reuses the same pool entry.
+  pushimm 42
+  print
+
+  exit
+.endfunc

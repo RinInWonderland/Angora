@@ -1,0 +1,19 @@
+.DS_Store
+.vscode
+.zed
+bin
+*.o
+*.bc
+.ycm_extra_conf.py
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+_deps/
+
+# Others
+AGENTS.md
+SKILL.md
+opencode.json

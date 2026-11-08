@@ -1,0 +1,49 @@
+// expect: ["a,b", "x\"y"]
+// expect: ["a,b", "x\"y"]
+// expect: plain
+// expect: "plain"
+
+// Output fidelity: `print` vs `repr`.
+//
+// `print` leaves a top-level string raw but quotes/escapes strings nested in an
+// array; `repr` always quotes/escapes strings and bounds array depth and
+// element count. Both print FP in the shortest round-trip form.
+//
+// Expected output:
+//   ["a,b", "x\"y"]   (print of an array of strings: nested strings quoted)
+//   ["a,b", "x\"y"]   (repr of the same array)
+//   plain             (print of a top-level string: raw)
+//   "plain"           (repr of a top-level string: quoted)
+
+.data
+.str s1 "a,b"
+.str s2 "x\"y"
+.str s3 "plain"
+.end
+
+.code
+.func main
+  // array = ["a,b", "x\"y"]
+  arrnew
+  ld &s1
+  arrpush
+  ld &s2
+  arrpush
+
+  // print the array, then repr the same array (dup keeps a copy)
+  dup
+  print
+  pop
+  repr
+  pop
+
+  // top-level strings: raw for print, quoted for repr
+  ld &s3
+  print
+  pop
+  ld &s3
+  repr
+  pop
+
+  exit
+.endfunc
