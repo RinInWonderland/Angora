@@ -36,7 +36,7 @@ constexpr uint32_t kMaxJumpArg = 0x1FFFFFF;
 // so the count is limited to the upper = 23 bits.
 constexpr uint32_t kMaxFoldedImm = (1u << (25 - kVarBits)) - 1;
 
-int kDebugMsgSwitch = 0;
+int g_debug_msg_switch = 0;
 
 static void PrintUsage(FILE *out) {
   fprintf(out, "usage: angora-interp <file.asm> [-run|-compile] [-debug] [-help]\n");
@@ -139,8 +139,8 @@ bool ReadInst(vector<string> &dest, FILE *fp, size_t &line, size_t &line_of_toke
               break;
             }
             if (ferror(fp)) {
-      g_lex_error = true;
-      AsmError(line, "cannot read source");
+              g_lex_error = true;
+              AsmError(line, "cannot read source");
               result = false;
               break;
             }
@@ -645,7 +645,7 @@ bool ParseDataSection(FILE *fp, GcHeap &heap, vector<Unit> &data_section,
                         vector<string> &symbol_names, size_t &line) {
   bool result = true;
 
-  if (kDebugMsgSwitch) {
+  if (g_debug_msg_switch) {
     AsmInfo("data section begin");
   }
 
@@ -685,7 +685,7 @@ bool ParseDataSection(FILE *fp, GcHeap &heap, vector<Unit> &data_section,
 
     string_view id(data_sectline[1]);
 
-    if (kDebugMsgSwitch) {
+    if (g_debug_msg_switch) {
       string echo;
       for (size_t i = 0; i < data_sectline.size(); ++i) {
         echo += data_sectline[i];
@@ -777,7 +777,7 @@ bool ParseDataSection(FILE *fp, GcHeap &heap, vector<Unit> &data_section,
     symbol_names.push_back(string(id));
   }
 
-  if (kDebugMsgSwitch) {
+  if (g_debug_msg_switch) {
     AsmInfo("data section end");
   }
 
@@ -863,7 +863,7 @@ bool ParseAsm(FILE *fp, GcHeap &heap, Program &prog, vector<Unit> &data_section,
       break;
     }
 
-    if (kDebugMsgSwitch) {
+    if (g_debug_msg_switch) {
       string echo;
       for (size_t i = 0; i < assembly.size(); ++i) {
         echo += assembly[i];
@@ -981,7 +981,7 @@ bool ParseAsm(FILE *fp, GcHeap &heap, Program &prog, vector<Unit> &data_section,
     Code output = args << 7;
     output += inst;
 
-    if (kDebugMsgSwitch) {
+    if (g_debug_msg_switch) {
       AsmInfo("encoded 0x%x", output);
     }
 
@@ -1027,7 +1027,7 @@ int main(int argc, char **argv) {
   const char *asm_file = nullptr;
   for (int i = 1; i < argc; ++i) {
     if (strcmp(argv[i], "-debug") == 0) {
-      kDebugMsgSwitch = 1;
+      g_debug_msg_switch = 1;
     } else if (strcmp(argv[i], "-compile") == 0) {
       compile_mode = true;
     } else if (strcmp(argv[i], "-run") == 0) {
@@ -1052,7 +1052,7 @@ int main(int argc, char **argv) {
 
   g_asm_file = asm_file;
 
-  if (kDebugMsgSwitch) {
+  if (g_debug_msg_switch) {
     AsmInfo("registered %lu instructions", kInstStrings.size());
   }
 
@@ -1095,7 +1095,7 @@ int main(int argc, char **argv) {
 
   if (!prog.empty()) {
     if (!compile_mode) {
-      if (kDebugMsgSwitch) {
+      if (g_debug_msg_switch) {
         AsmInfo("running program");
       }
       Machine machine(labels);
@@ -1107,7 +1107,7 @@ int main(int argc, char **argv) {
         return kExitError;
       }
     } else {
-      if (kDebugMsgSwitch) {
+      if (g_debug_msg_switch) {
         AsmInfo("writing bytecode");
       }
       string out(asm_file);
