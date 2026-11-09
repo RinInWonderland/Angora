@@ -224,7 +224,9 @@ private:
   // can still walk a chunk by striding `gc_size_`.
   static constexpr size_t kAlign = alignof(GcHeader);
   static constexpr size_t kSmallMax = 4096;
-  static constexpr size_t kNumSmall = kSmallMax / kAlign;
+  // The upper bound is inclusive, so a kSmallMax-byte object needs its own
+  // bucket at index kSmallMax / kAlign.
+  static constexpr size_t kNumSmall = kSmallMax / kAlign + 1;
 
   vector<GcChunk> chunks_;
   array<GcHeader *, kNumSmall> free_{};
